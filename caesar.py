@@ -1,43 +1,45 @@
 import sys
 import operator
 from itertools import cycle
+from collections import deque
 
 def solver():
-    caesar_sum = dict()
-    for i in range(0, len(ALPHABET)):
-        chi_sq = 0.0
-        cipher_shift = ''.join(map(chr, [(ord(x)+i) % 97 % 26 + 97 for x in CIPHER]))
-        for j in range(0, len(ALPHABET)):
-            letter = ALPHABET[j]
-            chi_sq += (cipher_shift.count(letter) - len(CIPHER)*LETTER_FREQS[j])**2 / (len(CIPHER)*LETTER_FREQS[j])
-        caesar_sum[i] = chi_sq
-    sorted_chi_sq = sorted(caesar_sum.items(), key=operator.itemgetter(1))
-    possible_chars = [solution[0] for solution in sorted_chi_sq]
-    letters = [ALPHABET[x] for x in possible_chars]
-    print "Keys ordered by most likely: " + ", ".join(letters)
-        
+    # Get frequency of each letter in cipher text
+    frequency = [CIPHER.count(chr(x))/float(len(CIPHER)) for x in range(ord('a'), ord('z')+1)]
+    # Create object that allows you to rotate items in a list (simulates increasing by one)
+    rotate_frequency = deque(LETTER_FREQS)
+
+    # Calculate correlations for each i
+    shift_corr = [0] * 26
+    for i in range(0, 26):
+        shift_corr[i] = sum(x*y for x, y in zip(rotate_frequency, frequency))
+        rotate_frequency.rotate(-1)
+
+    # Sort by highest probability    
+    most_likely_keys = [i[0] for i in sorted(enumerate(shift_corr), key=lambda x:x[1], reverse=True)]
+    print "Keys ordered by most likely: " + ','.join(map(str, most_likely_keys))
+
     print "####################"
 
+
+    # Take the guess for a key, try to decrypt
     while True:
-        key = raw_input("Enter key: ")
-        pairs = zip(CIPHER, cycle(key))
-        result = ''
-        for pair in pairs:
-            total = reduce(lambda x, y: ALPHABET.index(x) + ALPHABET.index(y), pair)
-            result += ALPHABET[total % 26]
+        shift = int(raw_input("Enter key: "))
+        shifted_letters = []
+        for letter in CIPHER:
+            shifted_letters.append(ALPHABET[(ALPHABET.index(letter) + shift) % 26])
+        result = ''.join(shifted_letters)
         print result
         check_right = raw_input("Is this correct? ")
         if check_right.startswith("y"):
             print "Well done!"
             return 0
 
-
-ALPHABET = map(chr, range(ord('a'), ord('z')+1))
-LETTER_FREQS = [x / 100.0 for x in [8.167, 1.492, 2.782, 4.253, 12.702, 2.228,
-                2.015, 6.094, 6.966, 0.153, 0.772, 4.025, 2.406, 6.749, 7.507,
-                1.929, 0.095, 5.987, 6.327, 9.056, 2.758, 0.978, 2.360, 0.150,
-                1.974, 0.074]]
-
+# Letters a-z
+ALPHABET = ''.join(map(chr, range(ord('a'), ord('z')+1)))
+# Frequencies taken from class (unknown original source)
+LETTER_FREQS = [0.080,0.015,0.030,0.040,0.130,0.020,0.015,0.060,0.065,0.005,0.005,0.035,0.030,0.070,0.080,0.020,0.002,0.065,0.060,0.090,0.030,0.010,0.015,0.005,0.020,0.002]
+# Ciphertext
 f = open(sys.argv[1], 'r')
 CIPHER = f.read().replace(' ', '').replace('\n', '').lower()
 f.close()
